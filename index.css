@@ -169,7 +169,9 @@ html, body {
   .offline .interstitial-wrapper {
     padding-top: 20px;
     max-width: 100%;
-    transform: translateY(-20vh);
+    transform: translateY(-10vh);
+    height: 100vh;
+    overflow: hidden;
   }
   
   .offline .runner-container {
@@ -192,6 +194,7 @@ html, body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    padding-bottom: 120px;
   }
   
   .arcade-mode .runner-container {
@@ -200,6 +203,11 @@ html, body {
     max-width: 90vw;
     height: 120px;
     margin: 20px auto;
+  }
+  
+  /* Hide desktop message on mobile */
+  #messageBox {
+    display: none;
   }
 }
 
@@ -271,6 +279,8 @@ html, body {
 @media (max-width: 768px) and (orientation: landscape) {
   .offline .interstitial-wrapper {
     padding-top: 10px;
+    height: 100vh;
+    overflow: hidden;
   }
   
   .offline .runner-container {
@@ -296,6 +306,11 @@ html, body {
     height: 60px;
     font-size: 12px;
   }
+  
+  /* Hide desktop message on mobile landscape */
+  #messageBox {
+    display: none;
+  }
 }
 
 /* Very small screens */
@@ -308,5 +323,15 @@ html, body {
   
   .mobile-controls {
     gap: 30px;
+    bottom: 15px;
+  }
+  
+  /* Ensure no overflow on small screens */
+  body, html {
+    overflow-x: hidden;
+  }
+  
+  .offline .interstitial-wrapper {
+    padding-bottom: 120px;
   }
 }
