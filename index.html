@@ -3,11 +3,16 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0,maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title >chrome easter egg: t-rex runner</title>
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> 
     <script src="index.js"></script>
+    <!-- Telegram WebApp script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 
 <body id="t" class="offline">
@@ -43,12 +48,30 @@
 
 <script>
     document.onkeydown = function(evt) {
-    evt = evt || window.event;
-    if (evt.keyCode == 32) {
-        var box = document.getElementById("messageBox");
-        box.style.visibility="hidden";
-    }
-};
+        evt = evt || window.event;
+        if (evt.keyCode == 32) {
+            var box = document.getElementById("messageBox");
+            box.style.visibility="hidden";
+        }
+    };
+    
+    // Auto-initialize for Telegram WebApp
+    window.addEventListener('load', function() {
+        // Hide message box on mobile
+        if (window.innerWidth <= 768) {
+            var messageBox = document.getElementById("messageBox");
+            if (messageBox) {
+                messageBox.style.display = "none";
+            }
+        }
+        
+        // Initialize T-Rex game
+        setTimeout(function() {
+            if (typeof new Runner !== 'undefined') {
+                new Runner('.interstitial-wrapper');
+            }
+        }, 100);
+    });
 </script>
     
 </html>

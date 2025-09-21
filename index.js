@@ -2,6 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 // extract from chromium source code by @liuwayong
+
+// Telegram WebApp initialization
+if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    
+    // Prevent default closing behavior
+    tg.enableClosingConfirmation();
+    
+    // Set theme
+    document.body.style.backgroundColor = tg.themeParams.bg_color || '#f7f7f7';
+}
+
 (function () {
     'use strict';
     /**
@@ -400,10 +414,19 @@
         createTouchController: function () {
             this.touchController = document.createElement('div');
             this.touchController.className = Runner.classes.TOUCH_CONTROLLER;
+            this.touchController.style.touchAction = 'manipulation';
             this.outerContainerEl.appendChild(this.touchController);
             
             // Initialize mobile action buttons
             this.initMobileButtons();
+            
+            // Add screen tap handler for game start
+            this.touchController.addEventListener('touchstart', function(e) {
+                if (!this.playing && !this.crashed) {
+                    e.preventDefault();
+                    this.onKeyDown(e);
+                }
+            }.bind(this), {passive: false});
         },
         
         /**
@@ -416,17 +439,19 @@
                 this.duckButton = document.getElementById('duck-btn');
                 
                 if (this.jumpButton && this.duckButton) {
-                    // Jump button events
+                    // Jump button events - with better touch handling
                     this.jumpButton.addEventListener('touchstart', this.handleMobileJump.bind(this), {passive: false});
                     this.jumpButton.addEventListener('touchend', this.handleMobileJumpEnd.bind(this), {passive: false});
                     this.jumpButton.addEventListener('mousedown', this.handleMobileJump.bind(this), {passive: false});
                     this.jumpButton.addEventListener('mouseup', this.handleMobileJumpEnd.bind(this), {passive: false});
+                    this.jumpButton.addEventListener('click', this.handleMobileJump.bind(this), {passive: false});
                     
-                    // Duck button events
+                    // Duck button events - with better touch handling
                     this.duckButton.addEventListener('touchstart', this.handleMobileDuck.bind(this), {passive: false});
                     this.duckButton.addEventListener('touchend', this.handleMobileDuckEnd.bind(this), {passive: false});
                     this.duckButton.addEventListener('mousedown', this.handleMobileDuck.bind(this), {passive: false});
                     this.duckButton.addEventListener('mouseup', this.handleMobileDuckEnd.bind(this), {passive: false});
+                    this.duckButton.addEventListener('click', this.handleMobileDuck.bind(this), {passive: false});
                 }
             }.bind(this), 100);
         },

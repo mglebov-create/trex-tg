@@ -7,6 +7,13 @@ html, body {
   margin: 0;
   width: 100%;
   height: 100%;
+  /* Telegram WebApp fixes */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
 }
 
 .icon {
@@ -164,62 +171,108 @@ html, body {
   z-index: 2;
 }
 
-/* Mobile Portrait Orientation Styles */
-@media (max-width: 768px) and (orientation: portrait) {
-  .offline .interstitial-wrapper {
-    padding-top: 20px;
-    max-width: 100%;
-    transform: translateY(-10vh);
+/* Telegram WebApp Mobile Styles */
+@media (max-width: 768px) {
+  html, body {
     height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile browsers */
     overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
   
-  .offline .runner-container {
-    width: 90vw;
-    max-width: 90vw;
-    height: 120px;
-    margin: 0 auto;
-    top: 20px;
-  }
-  
-  .offline .runner-canvas {
-    width: 100%;
-    height: 120px;
+  /* Fix for Telegram webapp positioning */
+  .offline .interstitial-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0;
+    margin: 0;
     max-width: 100%;
-  }
-  
-  .arcade-mode .interstitial-wrapper {
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding-bottom: 120px;
+    transform: none;
+    overflow: hidden;
+  }
+  
+  .offline .runner-container {
+    position: relative;
+    width: 90vw;
+    max-width: 90vw;
+    height: 150px;
+    top: 0;
+    margin: 0 auto;
+    transform: none;
+  }
+  
+  .offline .runner-canvas {
+    width: 100%;
+    height: 150px;
+    max-width: 100%;
+    position: relative;
+    top: 0;
+  }
+  
+  /* Enhanced arcade mode for Telegram */
+  .arcade-mode .interstitial-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: 0;
   }
   
   .arcade-mode .runner-container {
     position: relative;
-    width: 90vw;
-    max-width: 90vw;
-    height: 120px;
-    margin: 20px auto;
+    width: 95vw;
+    max-width: 95vw;
+    height: 150px;
+    left: auto;
+    right: auto;
+    margin: 0 auto;
+    top: 0;
+    transform: none;
+    z-index: 2;
   }
   
-  /* Hide desktop message on mobile */
+  /* Hide desktop elements on mobile */
+  #main-content {
+    display: none;
+  }
+  
   #messageBox {
     display: none;
   }
 }
 
-/* Mobile Action Buttons */
+/* Mobile Action Buttons - Enhanced for Telegram */
 .mobile-controls {
   display: none;
   position: fixed;
-  bottom: 20px;
+  bottom: 30px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  gap: 40px;
+  gap: 60px;
   justify-content: center;
   align-items: center;
 }
@@ -231,15 +284,15 @@ html, body {
 }
 
 .action-button {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   border: 3px solid #535353;
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: bold;
   color: #535353;
   user-select: none;
@@ -247,11 +300,14 @@ html, body {
   touch-action: manipulation;
   transition: all 0.1s ease;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  /* Prevent text selection */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .action-button:active {
   background: rgba(200, 200, 200, 0.3);
-  transform: scale(0.95);
+  transform: scale(0.9);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
@@ -335,3 +391,5 @@ html, body {
     padding-bottom: 120px;
   }
 }
+
+
