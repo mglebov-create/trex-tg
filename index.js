@@ -371,6 +371,12 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
 
             this.adjustDimensions();
             this.setSpeed();
+            
+            // Set arcade mode immediately on mobile for proper scaling
+            if (IS_MOBILE || window.innerWidth <= 768) {
+                this.setArcadeMode();
+                this.activated = true;
+            }
 
             this.containerEl = document.createElement('div');
             this.containerEl.className = Runner.classes.CONTAINER;
@@ -406,6 +412,11 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
 
             window.addEventListener(Runner.events.RESIZE,
                 this.debounceResize.bind(this));
+                
+            // Force arcade mode scaling immediately for mobile
+            if (IS_MOBILE || window.innerWidth <= 768) {
+                this.setArcadeModeContainerScale();
+            }
         },
 
         /**
@@ -550,7 +561,14 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
 
             this.dimensions.WIDTH = this.outerContainerEl.offsetWidth - padding * 2;
             this.dimensions.WIDTH = Math.min(DEFAULT_WIDTH, this.dimensions.WIDTH); //Arcade Mode
-            if (this.activated) {
+            
+            // Force arcade mode on mobile from the beginning
+            if (IS_MOBILE || window.innerWidth <= 768) {
+                this.dimensions.WIDTH = Math.min(window.innerWidth * 0.95, DEFAULT_WIDTH);
+                if (!this.activated) {
+                    this.setArcadeMode();
+                    this.activated = true;
+                }
                 this.setArcadeModeContainerScale();
             }
             
@@ -593,6 +611,12 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                 this.playingIntro = true;
                 this.tRex.playingIntro = true;
 
+                // Skip intro animation on mobile and go directly to arcade mode
+                if (IS_MOBILE || window.innerWidth <= 768) {
+                    this.startGame();
+                    return;
+                }
+
                 // CSS animation definition.
                 var keyframes = '@-webkit-keyframes intro { ' +
                     'from { width:' + Trex.config.WIDTH + 'px }' +
@@ -611,9 +635,6 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                 this.containerEl.style.webkitAnimation = 'intro .4s ease-out 1 both';
                 this.containerEl.style.width = this.dimensions.WIDTH + 'px';
 
-                // if (this.touchController) {
-                //     this.outerContainerEl.appendChild(this.touchController);
-                // }
                 this.playing = true;
                 this.activated = true;
             } else if (this.crashed) {
@@ -1007,8 +1028,12 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                   window.devicePixelRatio;
 
             const cssScale = scale;
-            this.containerEl.style.transform =
-                'scale(' + cssScale + ') translateY(' + translateY + 'px)';
+            
+            // Apply transform immediately, even before the game starts
+            if (this.containerEl) {
+                this.containerEl.style.transform =
+                    'scale(' + cssScale + ') translateY(' + translateY + 'px)';
+            }
         },
         
         /**

@@ -65,10 +65,23 @@
             }
         }
         
-        // Initialize T-Rex game
+        // Initialize T-Rex game with immediate scaling
         setTimeout(function() {
-            if (typeof new Runner !== 'undefined') {
-                new Runner('.interstitial-wrapper');
+            if (typeof Runner !== 'undefined') {
+                var runner = new Runner('.interstitial-wrapper');
+                
+                // Force immediate arcade mode and scaling on mobile
+                if (window.innerWidth <= 768) {
+                    // Ensure arcade mode is set
+                    document.body.classList.add('arcade-mode');
+                    
+                    // Trigger resize to apply proper scaling
+                    setTimeout(function() {
+                        if (runner && runner.adjustDimensions) {
+                            runner.adjustDimensions();
+                        }
+                    }, 50);
+                }
             }
         }, 100);
     });
