@@ -1020,12 +1020,22 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
             const scaleWidth = window.innerWidth / this.dimensions.WIDTH;
             const scale = Math.max(1, Math.min(scaleHeight, scaleWidth));
             const scaledCanvasHeight = this.dimensions.HEIGHT * scale;
-            // Positions the game container at 10% of the available vertical window
-            // height minus the game container height.
-            const translateY = Math.ceil(Math.max(0, (windowHeight - scaledCanvasHeight -
-                                                      Runner.config.ARCADE_MODE_INITIAL_TOP_POSITION) *
-                                                  Runner.config.ARCADE_MODE_TOP_POSITION_PERCENT)) *
-                  window.devicePixelRatio;
+            
+            // Enhanced positioning for vertical mobile layout
+            let translateY;
+            if (IS_MOBILE && window.innerWidth <= 768) {
+                // For mobile vertical orientation, center the game better
+                // Account for button space at bottom (140px) and top padding (40px)
+                const availableHeight = windowHeight - 180; // Reserve space for buttons and padding
+                const centerY = (availableHeight - scaledCanvasHeight) / 2;
+                translateY = Math.max(0, centerY) * window.devicePixelRatio;
+            } else {
+                // Original desktop positioning
+                translateY = Math.ceil(Math.max(0, (windowHeight - scaledCanvasHeight -
+                                                          Runner.config.ARCADE_MODE_INITIAL_TOP_POSITION) *
+                                                      Runner.config.ARCADE_MODE_TOP_POSITION_PERCENT)) *
+                      window.devicePixelRatio;
+            }
 
             const cssScale = scale;
             

@@ -35,13 +35,13 @@
         </div>
     </div>
     
-    <!-- Mobile Action Buttons -->
+    <!-- Mobile Action Buttons - Swapped positions for vertical layout -->
     <div class="mobile-controls">
-        <button class="action-button jump-button" id="jump-btn">
-            JUMP
-        </button>
         <button class="action-button duck-button" id="duck-btn">
             DUCK
+        </button>
+        <button class="action-button jump-button" id="jump-btn">
+            JUMP
         </button>
     </div>
 </body>
@@ -65,23 +65,10 @@
             }
         }
         
-        // Initialize T-Rex game with immediate scaling
+        // Initialize T-Rex game
         setTimeout(function() {
-            if (typeof Runner !== 'undefined') {
-                var runner = new Runner('.interstitial-wrapper');
-                
-                // Force immediate arcade mode and scaling on mobile
-                if (window.innerWidth <= 768) {
-                    // Ensure arcade mode is set
-                    document.body.classList.add('arcade-mode');
-                    
-                    // Trigger resize to apply proper scaling
-                    setTimeout(function() {
-                        if (runner && runner.adjustDimensions) {
-                            runner.adjustDimensions();
-                        }
-                    }, 50);
-                }
+            if (typeof new Runner !== 'undefined') {
+                new Runner('.interstitial-wrapper');
             }
         }, 100);
     });
