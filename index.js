@@ -64,7 +64,9 @@ const TelegramGameAPI = {
     },
     
     setupMainButton() {
-        // Removed duplicate restart button - using existing game restart functionality
+        // Disable main button to avoid duplication with game's own restart
+        if (!this.mainButton) return;
+        this.mainButton.hide();
     },
     
     setupBackButton() {
@@ -75,12 +77,14 @@ const TelegramGameAPI = {
         });
     },
     
-    showMainButton(text = 'Restart Game') {
-        // Removed - using existing game restart functionality
+    showMainButton(text = '🔄 Restart Game') {
+        // Disabled to avoid duplication
+        return;
     },
     
     hideMainButton() {
-        // Removed - using existing game restart functionality
+        if (!this.mainButton) return;
+        this.mainButton.hide();
     },
     
     // Enhanced haptic feedback
@@ -532,7 +536,7 @@ const PerformanceManager = {
         setupTelegramIntegration: function () {
             if (!this.isTelegramEnvironment) return;
             
-            // Removed duplicate restart button setup - using existing game restart
+            // Removed main button setup to avoid duplication with game's restart
             
             // Setup viewport change handling
             this.telegramAPI.app.onEvent('viewportChanged', () => {
@@ -548,10 +552,21 @@ const PerformanceManager = {
         },
         
         /**
-         * Removed duplicate score display - using existing game UI.
+         * Update score displays for Telegram UI.
          */
         updateTelegramScoreDisplay: function () {
-            // Removed - using existing DistanceMeter for score display
+            if (!this.isTelegramEnvironment) return;
+            
+            const currentScore = document.getElementById('current-score');
+            const highScore = document.getElementById('high-score');
+            
+            if (currentScore) {
+                currentScore.textContent = Math.ceil(this.distanceRan);
+            }
+            
+            if (highScore) {
+                highScore.textContent = this.highestScore;
+            }
         },
         /**
          * Whether the easter egg has been disabled. CrOS enterprise enrolled devices.
@@ -1134,6 +1149,9 @@ const PerformanceManager = {
                         this.telegramAPI.vibrate('success');
                     }
                 }
+                
+                // Update Telegram score display
+                this.updateTelegramScoreDisplay();
 
                 // Night mode.
                 if (this.invertTimer > this.config.INVERT_FADE_DURATION) {
@@ -1367,6 +1385,7 @@ const PerformanceManager = {
             // Enhanced haptic feedback for game over
             if (this.isTelegramEnvironment) {
                 this.telegramAPI.vibrate('heavy');
+                // Removed main button show to avoid duplication
             } else {
                 vibrate(200);
             }
@@ -1404,6 +1423,7 @@ const PerformanceManager = {
             // Save score to Telegram cloud storage
             if (this.isTelegramEnvironment) {
                 this.telegramAPI.saveScore(currentScore, isNewHighScore);
+                this.updateTelegramScoreDisplay();
                 
                 // Optionally send score to bot
                 if (isNewHighScore) {
@@ -1451,6 +1471,12 @@ const PerformanceManager = {
                 this.tRex.reset();
                 this.playSound(this.soundFx.BUTTON_PRESS);
                 this.invert(true);
+                
+                // Hide Telegram main button (disabled)
+                // Removed to avoid duplication with game's own restart
+                
+                // Update score displays
+                this.updateTelegramScoreDisplay();
                 
                 this.update();
             }
@@ -2819,8 +2845,8 @@ const PerformanceManager = {
      * @enum {number}
      */
     DistanceMeter.config = {
-        // Number of digits - increased to support 9,999,999 max score.
-        MAX_DISTANCE_UNITS: 7,
+        // Number of digits.
+        MAX_DISTANCE_UNITS: 5,
 
         // Distance that causes achievement animation.
         ACHIEVEMENT_DISTANCE: 100,
@@ -2921,7 +2947,7 @@ const PerformanceManager = {
         },
 
         /**
-         * Update the distance meter with enhanced scoring.
+         * Update the distance meter.
          * @param {number} distance
          * @param {number} deltaTime
          * @return {boolean} Whether the acheivement sound fx should be played.
@@ -2932,14 +2958,9 @@ const PerformanceManager = {
 
             if (!this.acheivement) {
                 distance = this.getActualDistance(distance);
-                
-                // Cap the score at 9,999,999
-                if (distance > 9999999) {
-                    distance = 9999999;
-                }
-                
                 // Score has gone beyond the initial digit count.
-                if (distance > this.maxScore && this.maxScoreUnits < 7) {
+                if (distance > this.maxScore && this.maxScoreUnits ==
+                    this.config.MAX_DISTANCE_UNITS) {
                     this.maxScoreUnits++;
                     this.maxScore = parseInt(this.maxScore + '9');
                 } else {
