@@ -47,17 +47,7 @@
         </button>
     </div>
     
-    <!-- Telegram Specific UI Elements -->
-    <div id="telegram-ui" class="telegram-ui">
-        <div id="score-display" class="score-display">
-            <span id="current-score">0</span>
-            <span class="score-label">Score</span>
-        </div>
-        <div id="high-score-display" class="high-score-display">
-            <span id="high-score">0</span>
-            <span class="score-label">Best</span>
-        </div>
-    </div>
+
 </body>
 
 <script>
@@ -160,47 +150,21 @@
     function setupTelegramGameIntegration() {
         if (!telegramApp || !gameInstance) return;
         
-        // Listen for game over events
+        // Listen for game over events - removed duplicate restart button
         const originalGameOver = gameInstance.gameOver;
         gameInstance.gameOver = function() {
             originalGameOver.call(this);
             
-            // Show main button for restart
-            telegramApp.MainButton.show();
-            
             // Send haptic feedback
             telegramApp.HapticFeedback.impactOccurred('heavy');
-            
-            // Update score display
-            updateTelegramScoreDisplay();
         };
         
-        // Listen for score updates
-        const originalUpdateScore = gameInstance.distanceMeter ? gameInstance.distanceMeter.update : null;
-        if (originalUpdateScore) {
-            gameInstance.distanceMeter.update = function(deltaTime, distance) {
-                const result = originalUpdateScore.call(this, deltaTime, distance);
-                updateTelegramScoreDisplay();
-                return result;
-            };
-        }
+        // Remove score update override - using existing game scoring
+        // Existing game scoring system will be enhanced instead
     }
     
-    // Update Telegram score display
-    function updateTelegramScoreDisplay() {
-        if (!gameInstance) return;
-        
-        const currentScore = document.getElementById('current-score');
-        const highScore = document.getElementById('high-score');
-        
-        if (currentScore && gameInstance.distanceRan) {
-            currentScore.textContent = Math.ceil(gameInstance.distanceRan);
-        }
-        
-        if (highScore && gameInstance.highestScore) {
-            highScore.textContent = gameInstance.highestScore;
-        }
-    }
+    // Remove duplicate score display function - using existing game UI
+    // function updateTelegramScoreDisplay() { ... }
     
     // Handle page visibility for better performance
     document.addEventListener('visibilitychange', function() {

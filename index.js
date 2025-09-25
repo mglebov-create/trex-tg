@@ -64,12 +64,7 @@ const TelegramGameAPI = {
     },
     
     setupMainButton() {
-        if (!this.mainButton) return;
-        
-        this.mainButton.setText('🔄 Restart Game');
-        this.mainButton.color = this.app.themeParams.button_color || '#007acc';
-        this.mainButton.textColor = this.app.themeParams.button_text_color || '#ffffff';
-        this.mainButton.hide();
+        // Removed duplicate restart button - using existing game restart functionality
     },
     
     setupBackButton() {
@@ -80,15 +75,12 @@ const TelegramGameAPI = {
         });
     },
     
-    showMainButton(text = '🔄 Restart Game') {
-        if (!this.mainButton) return;
-        this.mainButton.setText(text);
-        this.mainButton.show();
+    showMainButton(text = 'Restart Game') {
+        // Removed - using existing game restart functionality
     },
     
     hideMainButton() {
-        if (!this.mainButton) return;
-        this.mainButton.hide();
+        // Removed - using existing game restart functionality
     },
     
     // Enhanced haptic feedback
@@ -540,13 +532,7 @@ const PerformanceManager = {
         setupTelegramIntegration: function () {
             if (!this.isTelegramEnvironment) return;
             
-            // Setup main button for restart
-            this.telegramAPI.mainButton.onClick(() => {
-                if (this.crashed) {
-                    this.restart();
-                    this.telegramAPI.hideMainButton();
-                }
-            });
+            // Removed duplicate restart button setup - using existing game restart
             
             // Setup viewport change handling
             this.telegramAPI.app.onEvent('viewportChanged', () => {
@@ -562,21 +548,10 @@ const PerformanceManager = {
         },
         
         /**
-         * Update score displays for Telegram UI.
+         * Removed duplicate score display - using existing game UI.
          */
         updateTelegramScoreDisplay: function () {
-            if (!this.isTelegramEnvironment) return;
-            
-            const currentScore = document.getElementById('current-score');
-            const highScore = document.getElementById('high-score');
-            
-            if (currentScore) {
-                currentScore.textContent = Math.ceil(this.distanceRan);
-            }
-            
-            if (highScore) {
-                highScore.textContent = this.highestScore;
-            }
+            // Removed - using existing DistanceMeter for score display
         },
         /**
          * Whether the easter egg has been disabled. CrOS enterprise enrolled devices.
@@ -1159,9 +1134,6 @@ const PerformanceManager = {
                         this.telegramAPI.vibrate('success');
                     }
                 }
-                
-                // Update Telegram score display
-                this.updateTelegramScoreDisplay();
 
                 // Night mode.
                 if (this.invertTimer > this.config.INVERT_FADE_DURATION) {
@@ -1395,7 +1367,6 @@ const PerformanceManager = {
             // Enhanced haptic feedback for game over
             if (this.isTelegramEnvironment) {
                 this.telegramAPI.vibrate('heavy');
-                this.telegramAPI.showMainButton();
             } else {
                 vibrate(200);
             }
@@ -1433,7 +1404,6 @@ const PerformanceManager = {
             // Save score to Telegram cloud storage
             if (this.isTelegramEnvironment) {
                 this.telegramAPI.saveScore(currentScore, isNewHighScore);
-                this.updateTelegramScoreDisplay();
                 
                 // Optionally send score to bot
                 if (isNewHighScore) {
@@ -1481,14 +1451,6 @@ const PerformanceManager = {
                 this.tRex.reset();
                 this.playSound(this.soundFx.BUTTON_PRESS);
                 this.invert(true);
-                
-                // Hide Telegram main button
-                if (this.isTelegramEnvironment) {
-                    this.telegramAPI.hideMainButton();
-                }
-                
-                // Update score displays
-                this.updateTelegramScoreDisplay();
                 
                 this.update();
             }
@@ -2857,8 +2819,8 @@ const PerformanceManager = {
      * @enum {number}
      */
     DistanceMeter.config = {
-        // Number of digits.
-        MAX_DISTANCE_UNITS: 5,
+        // Number of digits - increased to support 9,999,999 max score.
+        MAX_DISTANCE_UNITS: 7,
 
         // Distance that causes achievement animation.
         ACHIEVEMENT_DISTANCE: 100,
@@ -2959,7 +2921,7 @@ const PerformanceManager = {
         },
 
         /**
-         * Update the distance meter.
+         * Update the distance meter with enhanced scoring.
          * @param {number} distance
          * @param {number} deltaTime
          * @return {boolean} Whether the acheivement sound fx should be played.
@@ -2970,9 +2932,14 @@ const PerformanceManager = {
 
             if (!this.acheivement) {
                 distance = this.getActualDistance(distance);
+                
+                // Cap the score at 9,999,999
+                if (distance > 9999999) {
+                    distance = 9999999;
+                }
+                
                 // Score has gone beyond the initial digit count.
-                if (distance > this.maxScore && this.maxScoreUnits ==
-                    this.config.MAX_DISTANCE_UNITS) {
+                if (distance > this.maxScore && this.maxScoreUnits < 7) {
                     this.maxScoreUnits++;
                     this.maxScore = parseInt(this.maxScore + '9');
                 } else {
