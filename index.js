@@ -1,25 +1,255 @@
 // Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-// extract from chromium source code by @liuwayong
+// Enhanced for Telegram Mini App by comprehensive refactoring
 
-// Telegram WebApp initialization
-if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+// Telegram WebApp Integration Module
+const TelegramGameAPI = {
+    app: null,
+    isInitialized: false,
+    hapticFeedback: null,
+    mainButton: null,
     
-    // Prevent default closing behavior
-    tg.enableClosingConfirmation();
+    init() {
+        if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
+            this.app = window.Telegram.WebApp;
+            this.hapticFeedback = this.app.HapticFeedback;
+            this.mainButton = this.app.MainButton;
+            
+            // Configure WebApp
+            this.app.ready();
+            this.app.expand();
+            this.app.enableClosingConfirmation();
+            
+            // Apply theme and setup UI
+            this.applyTheme();
+            this.setupMainButton();
+            this.setupBackButton();
+            
+            this.isInitialized = true;
+            
+            console.log('Telegram WebApp initialized successfully');
+            return true;
+        }
+        console.log('Running in non-Telegram environment');
+        return false;
+    },
     
-    // Set theme
-    document.body.style.backgroundColor = tg.themeParams.bg_color || '#f7f7f7';
-}
+    applyTheme() {
+        if (!this.app) return;
+        
+        const theme = this.app.themeParams;
+        const root = document.documentElement;
+        
+        // Apply theme colors with fallbacks
+        if (theme.bg_color) {
+            document.body.style.backgroundColor = theme.bg_color;
+            root.style.setProperty('--tg-bg-color', theme.bg_color);
+        }
+        if (theme.text_color) {
+            root.style.setProperty('--tg-text-color', theme.text_color);
+        }
+        if (theme.button_color) {
+            root.style.setProperty('--tg-button-color', theme.button_color);
+        }
+        if (theme.button_text_color) {
+            root.style.setProperty('--tg-button-text-color', theme.button_text_color);
+        }
+        if (theme.secondary_bg_color) {
+            root.style.setProperty('--tg-secondary-bg-color', theme.secondary_bg_color);
+        }
+        
+        // Set status bar style
+        root.style.setProperty('--tg-color-scheme', this.app.colorScheme);
+    },
+    
+    setupMainButton() {
+        if (!this.mainButton) return;
+        
+        this.mainButton.setText('🔄 Restart Game');
+        this.mainButton.color = this.app.themeParams.button_color || '#007acc';
+        this.mainButton.textColor = this.app.themeParams.button_text_color || '#ffffff';
+        this.mainButton.hide();
+    },
+    
+    setupBackButton() {
+        if (!this.app.BackButton) return;
+        
+        this.app.BackButton.onClick(() => {
+            this.app.close();
+        });
+    },
+    
+    showMainButton(text = '🔄 Restart Game') {
+        if (!this.mainButton) return;
+        this.mainButton.setText(text);
+        this.mainButton.show();
+    },
+    
+    hideMainButton() {
+        if (!this.mainButton) return;
+        this.mainButton.hide();
+    },
+    
+    // Enhanced haptic feedback
+    vibrate(type = 'light') {
+        if (!this.hapticFeedback) {
+            // Fallback to native vibration
+            if (navigator.vibrate) {
+                const patterns = {
+                    light: [50],
+                    medium: [100],
+                    heavy: [200],
+                    error: [100, 50, 100],
+                    success: [50, 50, 50]
+                };
+                navigator.vibrate(patterns[type] || patterns.light);
+            }
+            return;
+        }
+        
+        switch (type) {
+            case 'light':
+                this.hapticFeedback.impactOccurred('light');
+                break;
+            case 'medium':
+                this.hapticFeedback.impactOccurred('medium');
+                break;
+            case 'heavy':
+            case 'error':
+                this.hapticFeedback.impactOccurred('heavy');
+                break;
+            case 'success':
+                this.hapticFeedback.notificationOccurred('success');
+                break;
+            case 'warning':
+                this.hapticFeedback.notificationOccurred('warning');
+                break;
+            default:
+                this.hapticFeedback.impactOccurred('light');
+        }
+    },
+    
+    // User data management
+    saveScore(score, isHighScore = false) {
+        if (!this.app) return;
+        
+        try {
+            const userData = this.getUserData();
+            userData.lastScore = score;
+            userData.gamesPlayed = (userData.gamesPlayed || 0) + 1;
+            
+            if (isHighScore) {
+                userData.highScore = score;
+                userData.highScoreDate = new Date().toISOString();
+            }
+            
+            // Save to Telegram cloud storage
+            if (this.app.CloudStorage) {
+                this.app.CloudStorage.setItem('gameData', JSON.stringify(userData));
+            }
+            
+            // Also save to localStorage as fallback
+            localStorage.setItem('trex_telegram_data', JSON.stringify(userData));
+        } catch (error) {
+            console.warn('Failed to save score:', error);
+        }
+    },
+    
+    getUserData() {
+        try {
+            // Try Telegram cloud storage first
+            if (this.app && this.app.CloudStorage) {
+                const cloudData = this.app.CloudStorage.getItem('gameData');
+                if (cloudData) {
+                    return JSON.parse(cloudData);
+                }
+            }
+            
+            // Fallback to localStorage
+            const localData = localStorage.getItem('trex_telegram_data');
+            return localData ? JSON.parse(localData) : {
+                highScore: 0,
+                gamesPlayed: 0,
+                lastScore: 0,
+                settings: {
+                    soundEnabled: true,
+                    hapticEnabled: true
+                }
+            };
+        } catch (error) {
+            console.warn('Failed to load user data:', error);
+            return { highScore: 0, gamesPlayed: 0, lastScore: 0 };
+        }
+    },
+    
+    // Send data to bot (if needed)
+    sendScore(score) {
+        if (!this.app) return;
+        
+        const data = {
+            score: score,
+            timestamp: Date.now(),
+            platform: 'telegram_webapp'
+        };
+        
+        try {
+            this.app.sendData(JSON.stringify(data));
+        } catch (error) {
+            console.warn('Failed to send score to bot:', error);
+        }
+    }
+};
+
+// Performance optimization utilities
+const PerformanceManager = {
+    isLowEndDevice: false,
+    
+    init() {
+        // Detect low-end devices
+        this.isLowEndDevice = this.detectLowEndDevice();
+        
+        if (this.isLowEndDevice) {
+            console.log('Low-end device detected, applying optimizations');
+            this.applyLowEndOptimizations();
+        }
+    },
+    
+    detectLowEndDevice() {
+        // Check device memory
+        if (navigator.deviceMemory && navigator.deviceMemory < 4) {
+            return true;
+        }
+        
+        // Check hardware concurrency
+        if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+            return true;
+        }
+        
+        // Check connection
+        if (navigator.connection && navigator.connection.effectiveType) {
+            const connection = navigator.connection.effectiveType;
+            if (connection === 'slow-2g' || connection === '2g') {
+                return true;
+            }
+        }
+        
+        return false;
+    },
+    
+    applyLowEndOptimizations() {
+        // Reduce animation quality
+        document.documentElement.style.setProperty('--animation-duration', '0.1s');
+        
+        // Disable some visual effects
+        document.body.classList.add('low-performance');
+    }
+};
 
 (function () {
     'use strict';
     /**
-     * T-Rex runner.
+     * T-Rex runner with enhanced Telegram WebApp integration.
      * @param {string} outerContainerId Outer containing element id.
      * @param {Object} opt_config
      * @constructor
@@ -32,12 +262,26 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         }
         Runner.instance_ = this;
 
+        // Initialize Telegram API
+        this.telegramAPI = TelegramGameAPI;
+        this.isTelegramEnvironment = this.telegramAPI.init();
+        
+        // Initialize performance manager
+        PerformanceManager.init();
+        this.isLowEndDevice = PerformanceManager.isLowEndDevice;
+
         this.outerContainerEl = document.querySelector(outerContainerId);
         this.containerEl = null;
         this.snackbarEl = null;
         this.detailsButton = this.outerContainerEl.querySelector('#details-button');
 
         this.config = opt_config || Runner.config;
+        
+        // Apply performance optimizations for low-end devices
+        if (this.isLowEndDevice) {
+            this.config.MAX_SPEED = Math.min(this.config.MAX_SPEED, 10);
+            this.config.ACCELERATION = this.config.ACCELERATION * 0.8;
+        }
 
         this.dimensions = Runner.defaultDimensions;
 
@@ -50,6 +294,12 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         this.distanceRan = 0;
 
         this.highestScore = 0;
+        
+        // Load saved high score from Telegram cloud storage
+        if (this.isTelegramEnvironment) {
+            const userData = this.telegramAPI.getUserData();
+            this.highestScore = userData.highScore || 0;
+        }
 
         this.time = 0;
         this.runningTime = 0;
@@ -67,10 +317,24 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         this.resizeTimerId_ = null;
 
         this.playCount = 0;
+        
+        // Enhanced mobile and Telegram features
+        this.touchController = null;
+        this.jumpButton = null;
+        this.duckButton = null;
+        this.scoreDisplay = null;
+        this.highScoreDisplay = null;
 
         // Sound FX.
         this.audioBuffer = null;
         this.soundFx = {};
+        this.soundEnabled = true;
+        
+        // Load sound preference from user data
+        if (this.isTelegramEnvironment) {
+            const userData = this.telegramAPI.getUserData();
+            this.soundEnabled = userData.settings?.soundEnabled !== false;
+        }
 
         // Global web audio context for playing sounds.
         this.audioContext = null;
@@ -78,11 +342,19 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         // Images.
         this.images = {};
         this.imagesLoaded = 0;
+        
+        // Error handling
+        this.setupErrorHandling();
 
         if (this.isDisabled()) {
             this.setupDisabledRunner();
         } else {
             this.loadImages();
+        }
+        
+        // Setup Telegram-specific event listeners
+        if (this.isTelegramEnvironment) {
+            this.setupTelegramIntegration();
         }
     }
     window['Runner'] = Runner;
@@ -247,6 +519,66 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
 
     Runner.prototype = {
         /**
+         * Setup error handling for the game.
+         */
+        setupErrorHandling: function () {
+            window.addEventListener('error', (event) => {
+                console.error('Game error:', event.error);
+                // Don't crash the entire app on errors
+                event.preventDefault();
+            });
+            
+            window.addEventListener('unhandledrejection', (event) => {
+                console.error('Unhandled promise rejection:', event.reason);
+                event.preventDefault();
+            });
+        },
+        
+        /**
+         * Setup Telegram-specific integrations.
+         */
+        setupTelegramIntegration: function () {
+            if (!this.isTelegramEnvironment) return;
+            
+            // Setup main button for restart
+            this.telegramAPI.mainButton.onClick(() => {
+                if (this.crashed) {
+                    this.restart();
+                    this.telegramAPI.hideMainButton();
+                }
+            });
+            
+            // Setup viewport change handling
+            this.telegramAPI.app.onEvent('viewportChanged', () => {
+                setTimeout(() => {
+                    this.adjustDimensions();
+                }, 100);
+            });
+            
+            // Handle theme changes
+            this.telegramAPI.app.onEvent('themeChanged', () => {
+                this.telegramAPI.applyTheme();
+            });
+        },
+        
+        /**
+         * Update score displays for Telegram UI.
+         */
+        updateTelegramScoreDisplay: function () {
+            if (!this.isTelegramEnvironment) return;
+            
+            const currentScore = document.getElementById('current-score');
+            const highScore = document.getElementById('high-score');
+            
+            if (currentScore) {
+                currentScore.textContent = Math.ceil(this.distanceRan);
+            }
+            
+            if (highScore) {
+                highScore.textContent = this.highestScore;
+            }
+        },
+        /**
          * Whether the easter egg has been disabled. CrOS enterprise enrolled devices.
          * @return {boolean}
          */
@@ -299,48 +631,101 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         },
 
         /**
-         * Cache the appropriate image sprite from the page and get the sprite sheet
-         * definition.
+         * Enhanced image loading with error handling and performance optimization.
          */
         loadImages: function () {
-            if (IS_HIDPI) {
-                Runner.imageSprite = document.getElementById('offline-resources-2x');
-                this.spriteDef = Runner.spriteDefinition.HDPI;
-            } else {
-                Runner.imageSprite = document.getElementById('offline-resources-1x');
-                this.spriteDef = Runner.spriteDefinition.LDPI;
-            }
+            try {
+                if (IS_HIDPI) {
+                    Runner.imageSprite = document.getElementById('offline-resources-2x');
+                    this.spriteDef = Runner.spriteDefinition.HDPI;
+                } else {
+                    Runner.imageSprite = document.getElementById('offline-resources-1x');
+                    this.spriteDef = Runner.spriteDefinition.LDPI;
+                }
 
-            if (Runner.imageSprite.complete) {
+                if (!Runner.imageSprite) {
+                    throw new Error('Image sprite not found');
+                }
+
+                if (Runner.imageSprite.complete) {
+                    this.init();
+                } else {
+                    // Add timeout to prevent hanging
+                    const imageLoadTimeout = setTimeout(() => {
+                        console.warn('Image loading timed out, initializing anyway');
+                        this.init();
+                    }, 5000);
+                    
+                    Runner.imageSprite.addEventListener(Runner.events.LOAD, () => {
+                        clearTimeout(imageLoadTimeout);
+                        this.init();
+                    });
+                    
+                    Runner.imageSprite.addEventListener(Runner.events.ERROR || 'error', () => {
+                        clearTimeout(imageLoadTimeout);
+                        console.error('Failed to load image sprite');
+                        this.init(); // Try to initialize anyway
+                    });
+                }
+            } catch (error) {
+                console.error('Error in image loading:', error);
+                // Try to initialize anyway
                 this.init();
-            } else {
-                // If the images are not yet loaded, add a listener.
-                Runner.imageSprite.addEventListener(Runner.events.LOAD,
-                    this.init.bind(this));
             }
         },
 
         /**
-         * Load and decode base 64 encoded sounds.
+         * Enhanced sound loading with error handling.
          */
         loadSounds: function () {
-            if (!IS_IOS) {
-                this.audioContext = new AudioContext();
+            if (IS_IOS || !this.soundEnabled) {
+                console.log('Sound disabled or iOS detected, skipping sound initialization');
+                return;
+            }
+            
+            try {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
                 var resourceTemplate =
-                    document.getElementById(this.config.RESOURCE_TEMPLATE_ID).content;
+                    document.getElementById(this.config.RESOURCE_TEMPLATE_ID);
+                    
+                if (!resourceTemplate || !resourceTemplate.content) {
+                    console.warn('Audio resources template not found');
+                    return;
+                }
+                
+                resourceTemplate = resourceTemplate.content;
 
                 for (var sound in Runner.sounds) {
-                    var soundSrc =
-                        resourceTemplate.getElementById(Runner.sounds[sound]).src;
-                    soundSrc = soundSrc.substr(soundSrc.indexOf(',') + 1);
-                    var buffer = decodeBase64ToArrayBuffer(soundSrc);
+                    try {
+                        var audioElement = resourceTemplate.getElementById(Runner.sounds[sound]);
+                        if (!audioElement) {
+                            console.warn('Audio element not found:', Runner.sounds[sound]);
+                            continue;
+                        }
+                        
+                        var soundSrc = audioElement.src;
+                        if (!soundSrc) {
+                            console.warn('Audio source not found for:', sound);
+                            continue;
+                        }
+                        
+                        soundSrc = soundSrc.substr(soundSrc.indexOf(',') + 1);
+                        var buffer = decodeBase64ToArrayBuffer(soundSrc);
 
-                    // Async, so no guarantee of order in array.
-                    this.audioContext.decodeAudioData(buffer, function (index, audioData) {
-                        this.soundFx[index] = audioData;
-                    }.bind(this, sound));
+                        // Async, so no guarantee of order in array.
+                        this.audioContext.decodeAudioData(buffer, function (index, audioData) {
+                            this.soundFx[index] = audioData;
+                        }.bind(this, sound), function(error) {
+                            console.warn('Failed to decode audio for:', sound, error);
+                        });
+                    } catch (soundError) {
+                        console.warn('Error processing sound:', sound, soundError);
+                    }
                 }
+            } catch (error) {
+                console.warn('Audio context initialization failed:', error);
+                this.soundEnabled = false;
             }
         },
 
@@ -362,18 +747,20 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         },
 
         /**
-         * Game initialiser.
+         * Enhanced game initialization with Telegram optimizations.
          */
         init: function () {
             // Hide the static icon.
-            document.querySelector('.' + Runner.classes.ICON).style.visibility =
-                'hidden';
+            const iconEl = document.querySelector('.' + Runner.classes.ICON);
+            if (iconEl) {
+                iconEl.style.visibility = 'hidden';
+            }
 
             this.adjustDimensions();
             this.setSpeed();
             
-            // Set arcade mode immediately on mobile for proper scaling
-            if (IS_MOBILE || window.innerWidth <= 768) {
+            // Set arcade mode immediately on mobile or Telegram
+            if (IS_MOBILE || this.isTelegramEnvironment || window.innerWidth <= 768) {
                 this.setArcadeMode();
                 this.activated = true;
             }
@@ -386,7 +773,8 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                 this.dimensions.HEIGHT, Runner.classes.PLAYER);
 
             this.canvasCtx = this.canvas.getContext('2d');
-            this.canvasCtx.fillStyle = '#f7f7f7';
+            this.canvasCtx.fillStyle = this.isTelegramEnvironment ? 
+                (this.telegramAPI.app.themeParams.bg_color || '#f7f7f7') : '#f7f7f7';
             this.canvasCtx.fill();
             Runner.updateCanvasScaling(this.canvas);
 
@@ -403,7 +791,7 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
 
             this.outerContainerEl.appendChild(this.containerEl);
 
-            if (IS_MOBILE) {
+            if (IS_MOBILE || this.isTelegramEnvironment) {
                 this.createTouchController();
             }
 
@@ -413,17 +801,19 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
             window.addEventListener(Runner.events.RESIZE,
                 this.debounceResize.bind(this));
                 
-            // Force arcade mode scaling immediately for mobile but prevent repositioning
-            if (IS_MOBILE || window.innerWidth <= 768) {
-                // Set initial scale only, CSS will handle positioning
+            // Force arcade mode scaling immediately for mobile
+            if (IS_MOBILE || this.isTelegramEnvironment || window.innerWidth <= 768) {
                 setTimeout(() => {
                     this.setArcadeModeContainerScale();
                 }, 100);
             }
+            
+            // Initialize score displays
+            this.updateTelegramScoreDisplay();
         },
 
         /**
-         * Create the touch controller. A div that covers whole screen.
+         * Enhanced touch controller with better Telegram integration.
          */
         createTouchController: function () {
             this.touchController = document.createElement('div');
@@ -431,48 +821,72 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
             this.touchController.style.touchAction = 'manipulation';
             this.outerContainerEl.appendChild(this.touchController);
             
-            // Initialize mobile action buttons
-            this.initMobileButtons();
+            // Initialize mobile action buttons with delay for DOM readiness
+            setTimeout(() => {
+                this.initMobileButtons();
+            }, 100);
             
             // Add screen tap handler for game start
-            this.touchController.addEventListener('touchstart', function(e) {
+            this.touchController.addEventListener('touchstart', (e) => {
                 if (!this.playing && !this.crashed) {
                     e.preventDefault();
                     this.onKeyDown(e);
                 }
-            }.bind(this), {passive: false});
+            }, {passive: false});
         },
         
         /**
-         * Initialize mobile action buttons.
+         * Enhanced mobile button initialization with better error handling.
          */
         initMobileButtons: function () {
-            // Use a small delay to ensure DOM is ready
-            setTimeout(function() {
+            try {
                 this.jumpButton = document.getElementById('jump-btn');
                 this.duckButton = document.getElementById('duck-btn');
                 
                 if (this.jumpButton && this.duckButton) {
-                    // Jump button events - with better touch handling
+                    // Jump button events
                     this.jumpButton.addEventListener('touchstart', this.handleMobileJump.bind(this), {passive: false});
                     this.jumpButton.addEventListener('touchend', this.handleMobileJumpEnd.bind(this), {passive: false});
                     this.jumpButton.addEventListener('mousedown', this.handleMobileJump.bind(this), {passive: false});
                     this.jumpButton.addEventListener('mouseup', this.handleMobileJumpEnd.bind(this), {passive: false});
-                    this.jumpButton.addEventListener('click', this.handleMobileJump.bind(this), {passive: false});
                     
-                    // Duck button events - with better touch handling
+                    // Duck button events
                     this.duckButton.addEventListener('touchstart', this.handleMobileDuck.bind(this), {passive: false});
                     this.duckButton.addEventListener('touchend', this.handleMobileDuckEnd.bind(this), {passive: false});
                     this.duckButton.addEventListener('mousedown', this.handleMobileDuck.bind(this), {passive: false});
                     this.duckButton.addEventListener('mouseup', this.handleMobileDuckEnd.bind(this), {passive: false});
-                    this.duckButton.addEventListener('click', this.handleMobileDuck.bind(this), {passive: false});
+                    
+                    // Add visual feedback
+                    this.addButtonFeedback(this.jumpButton);
+                    this.addButtonFeedback(this.duckButton);
+                } else {
+                    console.warn('Mobile control buttons not found');
                 }
-            }.bind(this), 100);
+            } catch (error) {
+                console.error('Error initializing mobile buttons:', error);
+            }
         },
         
         /**
-         * Handle mobile jump button press.
-         * @param {Event} e
+         * Add visual and haptic feedback to buttons.
+         */
+        addButtonFeedback: function (button) {
+            if (!button) return;
+            
+            button.addEventListener('touchstart', () => {
+                button.style.transform = 'scale(0.9)';
+                if (this.isTelegramEnvironment) {
+                    this.telegramAPI.vibrate('light');
+                }
+            }, {passive: true});
+            
+            button.addEventListener('touchend', () => {
+                button.style.transform = 'scale(1)';
+            }, {passive: true});
+        },
+        
+        /**
+         * Enhanced mobile jump with Telegram feedback.
          */
         handleMobileJump: function (e) {
             e.preventDefault();
@@ -487,10 +901,15 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                         errorPageController.trackEasterEgg();
                     }
                 }
-                // Play sound effect and jump
+                
                 if (!this.tRex.jumping && !this.tRex.ducking) {
                     this.playSound(this.soundFx.BUTTON_PRESS);
                     this.tRex.startJump(this.currentSpeed);
+                    
+                    // Telegram haptic feedback
+                    if (this.isTelegramEnvironment) {
+                        this.telegramAPI.vibrate('light');
+                    }
                 }
             } else {
                 this.restart();
@@ -511,8 +930,7 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         },
         
         /**
-         * Handle mobile duck button press.
-         * @param {Event} e
+         * Enhanced mobile duck with Telegram feedback.
          */
         handleMobileDuck: function (e) {
             e.preventDefault();
@@ -520,11 +938,14 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
             
             if (this.playing && !this.crashed) {
                 if (this.tRex.jumping) {
-                    // Speed drop, activated when jump key is not pressed.
                     this.tRex.setSpeedDrop();
                 } else if (!this.tRex.jumping && !this.tRex.ducking) {
-                    // Duck.
                     this.tRex.setDuck(true);
+                    
+                    // Telegram haptic feedback for ducking
+                    if (this.isTelegramEnvironment) {
+                        this.telegramAPI.vibrate('light');
+                    }
                 }
             }
         },
@@ -680,7 +1101,7 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         },
 
         /**
-         * Update the game frame and schedules the next one.
+         * Enhanced game update loop with Telegram integration.
          */
         update: function () {
             this.updatePending = false;
@@ -732,7 +1153,15 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
 
                 if (playAchievementSound) {
                     this.playSound(this.soundFx.SCORE);
+                    
+                    // Haptic feedback for score milestones
+                    if (this.isTelegramEnvironment) {
+                        this.telegramAPI.vibrate('success');
+                    }
                 }
+                
+                // Update Telegram score display
+                this.updateTelegramScoreDisplay();
 
                 // Night mode.
                 if (this.invertTimer > this.config.INVERT_FADE_DURATION) {
@@ -837,48 +1266,62 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         },
 
         /**
-         * Process keydown.
-         * @param {Event} e
+         * Enhanced key down handler with better error handling.
          */
         onKeyDown: function (e) {
-            // Prevent native page scrolling whilst tapping on mobile.
-            if (IS_MOBILE && this.playing) {
-                e.preventDefault();
-            }
+            try {
+                // Prevent native page scrolling whilst tapping on mobile.
+                if ((IS_MOBILE || this.isTelegramEnvironment) && this.playing) {
+                    e.preventDefault();
+                }
 
-            if (e.target != this.detailsButton) {
-                if (!this.crashed && (Runner.keycodes.JUMP[e.keyCode] ||
-                    e.type == Runner.events.TOUCHSTART)) {
-                    if (!this.playing) {
-                        this.loadSounds();
-                        this.playing = true;
-                        this.update();
-                        if (window.errorPageController) {
-                            errorPageController.trackEasterEgg();
+                if (e.target != this.detailsButton) {
+                    if (!this.crashed && (Runner.keycodes.JUMP[e.keyCode] ||
+                        e.type == Runner.events.TOUCHSTART)) {
+                        if (!this.playing) {
+                            this.loadSounds();
+                            this.playing = true;
+                            this.update();
+                            if (window.errorPageController) {
+                                errorPageController.trackEasterEgg();
+                            }
+                        }
+                        
+                        // Play sound effect and jump on starting the game for the first time.
+                        if (!this.tRex.jumping && !this.tRex.ducking) {
+                            this.playSound(this.soundFx.BUTTON_PRESS);
+                            this.tRex.startJump(this.currentSpeed);
+                            
+                            // Telegram haptic feedback
+                            if (this.isTelegramEnvironment) {
+                                this.telegramAPI.vibrate('light');
+                            }
                         }
                     }
-                    //  Play sound effect and jump on starting the game for the first time.
-                    if (!this.tRex.jumping && !this.tRex.ducking) {
-                        this.playSound(this.soundFx.BUTTON_PRESS);
-                        this.tRex.startJump(this.currentSpeed);
+
+                    if (this.crashed && e.type == Runner.events.TOUCHSTART &&
+                        e.currentTarget == this.containerEl) {
+                        this.restart();
                     }
                 }
 
-                if (this.crashed && e.type == Runner.events.TOUCHSTART &&
-                    e.currentTarget == this.containerEl) {
-                    this.restart();
+                if (this.playing && !this.crashed && Runner.keycodes.DUCK[e.keyCode]) {
+                    e.preventDefault();
+                    if (this.tRex.jumping) {
+                        // Speed drop, activated only when jump key is not pressed.
+                        this.tRex.setSpeedDrop();
+                    } else if (!this.tRex.jumping && !this.tRex.ducking) {
+                        // Duck.
+                        this.tRex.setDuck(true);
+                        
+                        // Telegram haptic feedback
+                        if (this.isTelegramEnvironment) {
+                            this.telegramAPI.vibrate('light');
+                        }
+                    }
                 }
-            }
-
-            if (this.playing && !this.crashed && Runner.keycodes.DUCK[e.keyCode]) {
-                e.preventDefault();
-                if (this.tRex.jumping) {
-                    // Speed drop, activated only when jump key is not pressed.
-                    this.tRex.setSpeedDrop();
-                } else if (!this.tRex.jumping && !this.tRex.ducking) {
-                    // Duck.
-                    this.tRex.setDuck(true);
-                }
+            } catch (error) {
+                console.error('Error in onKeyDown:', error);
             }
         },
 
@@ -944,11 +1387,18 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         },
 
         /**
-         * Game over state.
+         * Enhanced game over with Telegram integration.
          */
         gameOver: function () {
             this.playSound(this.soundFx.HIT);
-            vibrate(200);
+            
+            // Enhanced haptic feedback for game over
+            if (this.isTelegramEnvironment) {
+                this.telegramAPI.vibrate('heavy');
+                this.telegramAPI.showMainButton();
+            } else {
+                vibrate(200);
+            }
 
             this.stop();
             this.crashed = true;
@@ -965,10 +1415,30 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                 this.gameOverPanel.draw();
             }
 
-            // Update the high score.
-            if (this.distanceRan > this.highestScore) {
-                this.highestScore = Math.ceil(this.distanceRan);
+            // Update the high score with Telegram integration
+            const currentScore = Math.ceil(this.distanceRan);
+            let isNewHighScore = false;
+            
+            if (currentScore > this.highestScore) {
+                this.highestScore = currentScore;
                 this.distanceMeter.setHighScore(this.highestScore);
+                isNewHighScore = true;
+                
+                // Celebrate new high score
+                if (this.isTelegramEnvironment) {
+                    this.telegramAPI.vibrate('success');
+                }
+            }
+            
+            // Save score to Telegram cloud storage
+            if (this.isTelegramEnvironment) {
+                this.telegramAPI.saveScore(currentScore, isNewHighScore);
+                this.updateTelegramScoreDisplay();
+                
+                // Optionally send score to bot
+                if (isNewHighScore) {
+                    this.telegramAPI.sendScore(currentScore);
+                }
             }
 
             // Reset the time clock.
@@ -992,6 +1462,9 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
             }
         },
 
+        /**
+         * Enhanced restart function with Telegram integration.
+         */
         restart: function () {
             if (!this.raqId) {
                 this.playCount++;
@@ -1008,6 +1481,15 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                 this.tRex.reset();
                 this.playSound(this.soundFx.BUTTON_PRESS);
                 this.invert(true);
+                
+                // Hide Telegram main button
+                if (this.isTelegramEnvironment) {
+                    this.telegramAPI.hideMainButton();
+                }
+                
+                // Update score displays
+                this.updateTelegramScoreDisplay();
+                
                 this.update();
             }
         },
@@ -1065,28 +1547,42 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         },
         
         /**
-         * Pause the game if the tab is not in focus.
+         * Enhanced visibility change handler for Telegram.
          */
         onVisibilityChange: function (e) {
-            if (document.hidden || document.webkitHidden || e.type == 'blur' ||
-                document.visibilityState != 'visible') {
-                this.stop();
-            } else if (!this.crashed) {
-                this.tRex.reset();
-                this.play();
+            try {
+                if (document.hidden || document.webkitHidden || e.type == 'blur' ||
+                    document.visibilityState != 'visible') {
+                    if (this.playing && !this.crashed) {
+                        this.stop();
+                    }
+                } else if (!this.crashed) {
+                    // Resume game with slight delay to ensure proper context
+                    setTimeout(() => {
+                        if (!this.crashed && this.paused) {
+                            this.tRex.reset();
+                            this.play();
+                        }
+                    }, 100);
+                }
+            } catch (error) {
+                console.error('Error in visibility change handler:', error);
             }
         },
 
         /**
-         * Play a sound.
-         * @param {SoundBuffer} soundBuffer
+         * Enhanced sound playing with user preference.
          */
         playSound: function (soundBuffer) {
-            if (soundBuffer) {
-                var sourceNode = this.audioContext.createBufferSource();
-                sourceNode.buffer = soundBuffer;
-                sourceNode.connect(this.audioContext.destination);
-                sourceNode.start(0);
+            if (soundBuffer && this.soundEnabled && this.audioContext) {
+                try {
+                    var sourceNode = this.audioContext.createBufferSource();
+                    sourceNode.buffer = soundBuffer;
+                    sourceNode.connect(this.audioContext.destination);
+                    sourceNode.start(0);
+                } catch (error) {
+                    console.warn('Error playing sound:', error);
+                }
             }
         },
 
@@ -1164,14 +1660,124 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
     }
 
 
-    /**
-     * Vibrate on mobile devices.
-     * @param {number} duration Duration of the vibration in milliseconds.
-     */
+    // Enhanced vibration function with better mobile support
     function vibrate(duration) {
         if (IS_MOBILE && window.navigator.vibrate) {
-            window.navigator.vibrate(duration);
+            try {
+                window.navigator.vibrate(duration);
+            } catch (error) {
+                console.warn('Vibration not supported:', error);
+            }
         }
+    }
+
+    // Enhanced error handling for game initialization
+    function safeGameInit() {
+        try {
+            // Initialize Telegram API first
+            TelegramGameAPI.init();
+            PerformanceManager.init();
+            
+            // Initialize game
+            if (typeof Runner !== 'undefined') {
+                window.gameInstance = new Runner('.interstitial-wrapper');
+                console.log('T-Rex game initialized successfully');
+            } else {
+                throw new Error('Runner class not available');
+            }
+        } catch (error) {
+            console.error('Failed to initialize game:', error);
+            
+            // Show error message to user
+            const errorMsg = document.createElement('div');
+            errorMsg.innerHTML = `
+                <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                           background: rgba(255, 0, 0, 0.9); color: white; padding: 20px; 
+                           border-radius: 10px; text-align: center; z-index: 10000;">
+                    <h3>Game Error</h3>
+                    <p>Failed to initialize the game. Please refresh and try again.</p>
+                    <button onclick="location.reload()" style="background: white; color: red; 
+                            border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        Refresh
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(errorMsg);
+        }
+    }
+
+    // Telegram-specific initialization
+    function initTelegramGame() {
+        // Check if we're in Telegram WebApp environment
+        const isTelegram = TelegramGameAPI.init();
+        
+        if (isTelegram) {
+            console.log('Initializing in Telegram WebApp environment');
+            
+            // Apply Telegram theme immediately
+            TelegramGameAPI.applyTheme();
+            
+            // Hide browser UI elements that might interfere
+            document.body.classList.add('telegram-webapp');
+            
+            // Optimize for Telegram
+            const messageBox = document.getElementById('messageBox');
+            if (messageBox) {
+                messageBox.style.display = 'none';
+            }
+        }
+        
+        // Initialize game with delay to ensure DOM is ready
+        setTimeout(safeGameInit, 300);
+    }
+
+    // Enhanced initialization with comprehensive error handling
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            initTelegramGame();
+        } catch (error) {
+            console.error('Critical initialization error:', error);
+            // Fallback initialization
+            setTimeout(() => {
+                try {
+                    window.gameInstance = new Runner('.interstitial-wrapper');
+                } catch (fallbackError) {
+                    console.error('Fallback initialization failed:', fallbackError);
+                }
+            }, 1000);
+        }
+    });
+    
+    // Handle page visibility changes for better performance
+    document.addEventListener('visibilitychange', function() {
+        if (window.gameInstance) {
+            if (document.hidden) {
+                if (window.gameInstance.playing && !window.gameInstance.crashed) {
+                    window.gameInstance.stop();
+                }
+            } else {
+                if (window.gameInstance.paused && !window.gameInstance.crashed) {
+                    setTimeout(() => {
+                        if (window.gameInstance && window.gameInstance.paused) {
+                            window.gameInstance.play();
+                        }
+                    }, 100);
+                }
+            }
+        }
+    });
+    
+    // Handle memory warnings on mobile
+    if ('memory' in performance) {
+        setInterval(() => {
+            if (performance.memory.usedJSHeapSize > performance.memory.jsHeapSizeLimit * 0.9) {
+                console.warn('High memory usage detected, optimizing...');
+                // Force garbage collection if available
+                if (window.gc) {
+                    window.gc();
+                }
+            }
+        }, 30000);
     }
 
 
@@ -1196,9 +1802,129 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
 
 
     /**
-     * Decodes the base 64 audio to ArrayBuffer used by Web Audio.
+     * Enhanced decoding function with error handling.
      * @param {string} base64String
+     * @return {ArrayBuffer}
      */
+    function decodeBase64ToArrayBuffer(base64String) {
+        try {
+            var len = (base64String.length / 4) * 3;
+            var str = atob(base64String);
+            var arrayBuffer = new ArrayBuffer(len);
+            var bytes = new Uint8Array(arrayBuffer);
+
+            for (var i = 0; i < len; i++) {
+                bytes[i] = str.charCodeAt(i);
+            }
+            return bytes.buffer;
+        } catch (error) {
+            console.error('Failed to decode base64 audio:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get timestamp with performance optimization.
+     * @return {number}
+     */
+    function getTimeStamp() {
+        return performance.now ? performance.now() : Date.now();
+    }
+
+    /**
+     * Enhanced collision detection with performance optimization.
+     * @param {Obstacle} obstacle
+     * @param {Trex} tRex T-rex object.
+     * @param {HTMLCanvasContext} opt_canvasCtx Optional canvas context for
+     *   drawing collision boxes.
+     * @return {Array<CollisionBox>}
+     */
+    function checkForCollision(obstacle, tRex, opt_canvasCtx) {
+        if (!obstacle || !tRex) {
+            return false;
+        }
+        
+        try {
+            var obstacleBoxes = obstacle.collisionBoxes;
+            var tRexBoxes = tRex.collisionBoxes;
+
+            // Simple distance check first for performance
+            var distance = obstacle.xPos - tRex.xPos;
+            if (distance > 50) {
+                return false;
+            }
+
+            // Detailed collision detection
+            for (var t = 0; t < tRexBoxes.length; t++) {
+                for (var o = 0; o < obstacleBoxes.length; o++) {
+                    // Adjust the box to actual positions.
+                    var tRexBox = createAdjustedCollisionBox(tRexBoxes[t], tRex);
+                    var obstacleBox = createAdjustedCollisionBox(obstacleBoxes[o], obstacle);
+
+                    // Simple box collision detection.
+                    if (boxCompare(tRexBox, obstacleBox)) {
+                        return [tRexBox, obstacleBox];
+                    }
+                }
+            }
+            return false;
+        } catch (error) {
+            console.error('Error in collision detection:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Lazy loading utility for better performance.
+     */
+    const LazyLoader = {
+        observedElements: new Set(),
+        observer: null,
+        
+        init() {
+            if (!window.IntersectionObserver) {
+                return;
+            }
+            
+            this.observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        this.loadElement(entry.target);
+                        this.observer.unobserve(entry.target);
+                        this.observedElements.delete(entry.target);
+                    }
+                });
+            }, {
+                rootMargin: '50px'
+            });
+        },
+        
+        observe(element) {
+            if (!this.observer || this.observedElements.has(element)) {
+                return;
+            }
+            
+            this.observedElements.add(element);
+            this.observer.observe(element);
+        },
+        
+        loadElement(element) {
+            // Load element content
+            if (element.dataset.src) {
+                element.src = element.dataset.src;
+            }
+            if (element.dataset.background) {
+                element.style.backgroundImage = `url(${element.dataset.background})`;
+            }
+        }
+    };
+
+    // Initialize lazy loader
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => LazyLoader.init());
+    } else {
+        LazyLoader.init();
+    }
     function decodeBase64ToArrayBuffer(base64String) {
         var len = (base64String.length / 4) * 3;
         var str = atob(base64String);

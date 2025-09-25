@@ -7,18 +7,20 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title >chrome easter egg: t-rex runner</title>
+    <meta name="theme-color" content="#f7f7f7">
+    <meta name="msapplication-navbutton-color" content="#f7f7f7">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>T-Rex Runner - Telegram Mini App</title>
     <link rel="stylesheet" href="index.css">
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet"> 
-    <script src="index.js"></script>
-    <!-- Telegram WebApp script -->
+    <!-- Telegram WebApp script - load first -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="index.js"></script>
 </head>
 
-<body id="t" class="offline">
+<body id="t" class="offline telegram-webapp">
     <div id="messageBox" class="sendmessage">
-         <h1 style="text-align: center;font-family: 'Open Sans', sans-serif;">Press Space to start</h1>
-         <div class="niokbutton" onclick="okbuttonsend()"></div>
+         <h1 style="text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Tap to Start Game</h1>
+         <div class="start-info">Score points by jumping over obstacles!</div>
     </div>
     <div id="main-frame-error" class="interstitial-wrapper">
         <div id="main-content">
@@ -35,42 +37,176 @@
         </div>
     </div>
     
-    <!-- Mobile Action Buttons - Swapped positions for vertical layout -->
+    <!-- Mobile Action Buttons - Optimized for Telegram -->
     <div class="mobile-controls">
-        <button class="action-button duck-button" id="duck-btn">
-            DUCK
+        <button class="action-button duck-button" id="duck-btn" aria-label="Duck">
+            <span class="button-icon">⬇️</span>
         </button>
-        <button class="action-button jump-button" id="jump-btn">
-            JUMP
+        <button class="action-button jump-button" id="jump-btn" aria-label="Jump">
+            <span class="button-icon">⬆️</span>
         </button>
+    </div>
+    
+    <!-- Telegram Specific UI Elements -->
+    <div id="telegram-ui" class="telegram-ui">
+        <div id="score-display" class="score-display">
+            <span id="current-score">0</span>
+            <span class="score-label">Score</span>
+        </div>
+        <div id="high-score-display" class="high-score-display">
+            <span id="high-score">0</span>
+            <span class="score-label">Best</span>
+        </div>
     </div>
 </body>
 
 <script>
+    // Telegram WebApp Configuration
+    let telegramApp = null;
+    let gameInstance = null;
+    
+    // Initialize Telegram WebApp
+    function initTelegramApp() {
+        if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
+            telegramApp = window.Telegram.WebApp;
+            telegramApp.ready();
+            telegramApp.expand();
+            telegramApp.enableClosingConfirmation();
+            
+            // Apply Telegram theme
+            applyTelegramTheme();
+            
+            // Set up main button for game restart
+            setupMainButton();
+            
+            return true;
+        }
+        return false;
+    }
+    
+    // Apply Telegram theme colors
+    function applyTelegramTheme() {
+        if (!telegramApp) return;
+        
+        const theme = telegramApp.themeParams;
+        if (theme.bg_color) {
+            document.body.style.backgroundColor = theme.bg_color;
+            document.documentElement.style.setProperty('--tg-bg-color', theme.bg_color);
+        }
+        if (theme.text_color) {
+            document.documentElement.style.setProperty('--tg-text-color', theme.text_color);
+        }
+        if (theme.button_color) {
+            document.documentElement.style.setProperty('--tg-button-color', theme.button_color);
+        }
+        if (theme.button_text_color) {
+            document.documentElement.style.setProperty('--tg-button-text-color', theme.button_text_color);
+        }
+    }
+    
+    // Setup Telegram main button
+    function setupMainButton() {
+        if (!telegramApp) return;
+        
+        telegramApp.MainButton.setText('Restart Game');
+        telegramApp.MainButton.hide();
+        
+        telegramApp.MainButton.onClick(function() {
+            if (gameInstance && gameInstance.crashed) {
+                gameInstance.restart();
+                telegramApp.MainButton.hide();
+            }
+        });
+    }
+    
+    // Enhanced keyboard handler
     document.onkeydown = function(evt) {
         evt = evt || window.event;
         if (evt.keyCode == 32) {
             var box = document.getElementById("messageBox");
-            box.style.visibility="hidden";
+            if (box) {
+                box.style.visibility = "hidden";
+            }
         }
     };
     
-    // Auto-initialize for Telegram WebApp
-    window.addEventListener('load', function() {
-        // Hide message box on mobile
-        if (window.innerWidth <= 768) {
-            var messageBox = document.getElementById("messageBox");
+    // Initialize everything when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Telegram WebApp
+        const isTelegram = initTelegramApp();
+        
+        // Hide message box on mobile or in Telegram
+        if (window.innerWidth <= 768 || isTelegram) {
+            const messageBox = document.getElementById("messageBox");
             if (messageBox) {
                 messageBox.style.display = "none";
             }
         }
         
-        // Initialize T-Rex game
+        // Initialize T-Rex game with delay for proper loading
         setTimeout(function() {
-            if (typeof new Runner !== 'undefined') {
-                new Runner('.interstitial-wrapper');
+            if (typeof Runner !== 'undefined') {
+                gameInstance = new Runner('.interstitial-wrapper');
+                
+                // Set up game event listeners for Telegram integration
+                if (isTelegram && gameInstance) {
+                    setupTelegramGameIntegration();
+                }
             }
-        }, 100);
+        }, 200);
+    });
+    
+    // Telegram game integration
+    function setupTelegramGameIntegration() {
+        if (!telegramApp || !gameInstance) return;
+        
+        // Listen for game over events
+        const originalGameOver = gameInstance.gameOver;
+        gameInstance.gameOver = function() {
+            originalGameOver.call(this);
+            
+            // Show main button for restart
+            telegramApp.MainButton.show();
+            
+            // Send haptic feedback
+            telegramApp.HapticFeedback.impactOccurred('heavy');
+            
+            // Update score display
+            updateTelegramScoreDisplay();
+        };
+        
+        // Listen for score updates
+        const originalUpdateScore = gameInstance.distanceMeter ? gameInstance.distanceMeter.update : null;
+        if (originalUpdateScore) {
+            gameInstance.distanceMeter.update = function(deltaTime, distance) {
+                const result = originalUpdateScore.call(this, deltaTime, distance);
+                updateTelegramScoreDisplay();
+                return result;
+            };
+        }
+    }
+    
+    // Update Telegram score display
+    function updateTelegramScoreDisplay() {
+        if (!gameInstance) return;
+        
+        const currentScore = document.getElementById('current-score');
+        const highScore = document.getElementById('high-score');
+        
+        if (currentScore && gameInstance.distanceRan) {
+            currentScore.textContent = Math.ceil(gameInstance.distanceRan);
+        }
+        
+        if (highScore && gameInstance.highestScore) {
+            highScore.textContent = gameInstance.highestScore;
+        }
+    }
+    
+    // Handle page visibility for better performance
+    document.addEventListener('visibilitychange', function() {
+        if (gameInstance && document.hidden) {
+            gameInstance.stop && gameInstance.stop();
+        }
     });
 </script>
     
