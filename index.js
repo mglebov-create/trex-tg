@@ -413,9 +413,12 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
             window.addEventListener(Runner.events.RESIZE,
                 this.debounceResize.bind(this));
                 
-            // Force arcade mode scaling immediately for mobile
+            // Force arcade mode scaling immediately for mobile but prevent repositioning
             if (IS_MOBILE || window.innerWidth <= 768) {
-                this.setArcadeModeContainerScale();
+                // Set initial scale only, CSS will handle positioning
+                setTimeout(() => {
+                    this.setArcadeModeContainerScale();
+                }, 100);
             }
         },
 
@@ -569,6 +572,12 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
                     this.setArcadeMode();
                     this.activated = true;
                 }
+                // Only set scaling once on mobile to prevent repositioning during gameplay
+                if (!this.playing) {
+                    this.setArcadeModeContainerScale();
+                }
+            } else {
+                // Desktop can use dynamic scaling
                 this.setArcadeModeContainerScale();
             }
             
@@ -1021,28 +1030,37 @@ if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
             const scale = Math.max(1, Math.min(scaleHeight, scaleWidth));
             const scaledCanvasHeight = this.dimensions.HEIGHT * scale;
             
-            // Enhanced positioning for vertical mobile layout
-            let translateY;
+            // Mobile vertical layout - fixed centering
+            let translateY = 0;
+            let cssScale = scale;
+            
             if (IS_MOBILE && window.innerWidth <= 768) {
-                // For mobile vertical orientation, center the game better
-                // Account for button space at bottom (140px) and top padding (40px)
-                const availableHeight = windowHeight - 180; // Reserve space for buttons and padding
-                const centerY = (availableHeight - scaledCanvasHeight) / 2;
-                translateY = Math.max(0, centerY) * window.devicePixelRatio;
+                // For mobile vertical orientation, use CSS centering instead of JS transform
+                // This prevents dynamic repositioning during gameplay
+                cssScale = Math.min(scaleWidth, 2.5); // Limit max scale for mobile
+                translateY = 0; // Let CSS flexbox handle centering
+                
+                // Apply mobile-specific styling to keep game centered
+                if (this.containerEl) {
+                    this.containerEl.style.position = 'relative';
+                    this.containerEl.style.margin = '0 auto';
+                    this.containerEl.style.width = '95vw';
+                    this.containerEl.style.maxWidth = '95vw';
+                    this.containerEl.style.transform = 'scale(' + cssScale + ')';
+                    this.containerEl.style.transformOrigin = 'center center';
+                }
             } else {
                 // Original desktop positioning
                 translateY = Math.ceil(Math.max(0, (windowHeight - scaledCanvasHeight -
                                                           Runner.config.ARCADE_MODE_INITIAL_TOP_POSITION) *
                                                       Runner.config.ARCADE_MODE_TOP_POSITION_PERCENT)) *
                       window.devicePixelRatio;
-            }
-
-            const cssScale = scale;
-            
-            // Apply transform immediately, even before the game starts
-            if (this.containerEl) {
-                this.containerEl.style.transform =
-                    'scale(' + cssScale + ') translateY(' + translateY + 'px)';
+                      
+                // Apply transform for desktop
+                if (this.containerEl) {
+                    this.containerEl.style.transform =
+                        'scale(' + cssScale + ') translateY(' + translateY + 'px)';
+                }
             }
         },
         
